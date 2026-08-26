@@ -9,6 +9,7 @@ interface Charge { id: string; label: string; montant: number }
 
 interface BudgetData {
   revenus: { label1: string; montant1: number; label2: string; montant2: number }
+  autresRevenus?: Charge[]
   charges: Charge[]
   objectifEpargne: number
   depenses: Record<string, number>
@@ -40,6 +41,7 @@ const DEFAULT_CHARGES: Charge[] = [
 
 const DEFAULT_DATA: BudgetData = {
   revenus: { label1: 'Mon prénom', montant1: 1800, label2: 'Prénom conjoint·e', montant2: 1500 },
+  autresRevenus: [],
   charges: DEFAULT_CHARGES,
   objectifEpargne: 500,
   depenses: {},
@@ -235,9 +237,9 @@ function BudgetScreen({ session }: { session: Session }) {
   }, [data, foyerId, loading])
 
   const patch = (part: Partial<BudgetData>) => setData(p => ({ ...p, ...part }))
-  const { revenus, charges, objectifEpargne, depenses } = data
+  const { revenus, autresRevenus = [], charges, objectifEpargne, depenses } = data
 
-  const totalRevenus  = revenus.montant1 + revenus.montant2
+  const totalRevenus  = revenus.montant1 + revenus.montant2 + autresRevenus.reduce((s, r) => s + r.montant, 0)
   const totalCharges  = charges.reduce((s, c) => s + c.montant, 0)
   const budgetDispo   = totalRevenus - totalCharges
   const budgetFlex    = budgetDispo - objectifEpargne
@@ -265,6 +267,18 @@ function BudgetScreen({ session }: { session: Session }) {
     patch({ charges: [...charges, { id: `${uid}-${Date.now()}`, label: ajoutLabel.trim(), montant: parseFloat(ajoutMontant) || 0 }] })
     setAjoutLabel(''); setAjoutMontant(''); setShowAjout(false)
   }
+
+  const [ajoutRevLabel,   setAjoutRevLabel]   = useState('')
+  const [ajoutRevMontant, setAjoutRevMontant] = useState('')
+  const [showAjoutRev,    setShowAjoutRev]    = useState(false)
+  const ajouterRevenu = () => {
+    if (!ajoutRevLabel.trim()) return
+    patch({ autresRevenus: [...autresRevenus, { id: `rev-${uid}-${Date.now()}`, label: ajoutRevLabel.trim(), montant: parseFloat(ajoutRevMontant) || 0 }] })
+    setAjoutRevLabel(''); setAjoutRevMontant(''); setShowAjoutRev(false)
+  }
+  const modRevLabel   = (id: string, v: string) => patch({ autresRevenus: autresRevenus.map(r => r.id === id ? { ...r, label: v } : r) })
+  const modRevMontant = (id: string, v: number) => patch({ autresRevenus: autresRevenus.map(r => r.id === id ? { ...r, montant: v } : r) })
+  const supprimerRev  = (id: string) => patch({ autresRevenus: autresRevenus.filter(r => r.id !== id) })
 
   const [copied,      setCopied]      = useState(false)
   const [showJoin,    setShowJoin]    = useState(false)
@@ -406,6 +420,7 @@ function BudgetScreen({ session }: { session: Session }) {
         {/* Revenus */}
         <Section title="Revenus" icon="💳" color="bg-emerald-50 text-emerald-600">
           <div className="pt-3 space-y-2">
+            {/* Salaires */}
             {[
               { label: revenus.label1, montant: revenus.montant1, onLabel: (v: string) => patch({ revenus: { ...revenus, label1: v } }), onMontant: (v: number) => patch({ revenus: { ...revenus, montant1: v } }) },
               { label: revenus.label2, montant: revenus.montant2, onLabel: (v: string) => patch({ revenus: { ...revenus, label2: v } }), onMontant: (v: number) => patch({ revenus: { ...revenus, montant2: v } }) },
@@ -417,6 +432,46 @@ function BudgetScreen({ session }: { session: Session }) {
                 <span className="text-slate-400 text-sm shrink-0">€</span>
               </div>
             ))}
+
+            {/* Rentrées supplémentaires */}
+            {autresRevenus.length > 0 && (
+              <div className="border-t border-dashed border-slate-200 pt-2 space-y-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Autres rentrées</p>
+                {autresRevenus.map(r => (
+                  <div key={r.id} className="flex items-center gap-2">
+                    <input type="text" value={r.label} onChange={e => modRevLabel(r.id, e.target.value)}
+                      className="flex-1 min-w-0 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
+                    <Num value={r.montant} className="w-24" onChange={v => modRevMontant(r.id, v)} />
+                    <span className="text-slate-400 text-sm shrink-0">€</span>
+                    <button onClick={() => supprimerRev(r.id)}
+                      className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition">
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulaire ajout rentrée */}
+            {showAjoutRev && (
+              <div className="flex items-center gap-2 pt-2 border-t border-dashed border-slate-200">
+                <input type="text" placeholder="Ex : Loyer perçu, APL…" value={ajoutRevLabel} autoFocus
+                  onChange={e => setAjoutRevLabel(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouterRevenu()}
+                  className="flex-1 min-w-0 border border-emerald-300 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                <input type="number" inputMode="decimal" placeholder="0" value={ajoutRevMontant}
+                  onChange={e => setAjoutRevMontant(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouterRevenu()}
+                  className="w-24 border border-emerald-300 rounded-2xl px-3 py-2.5 text-right text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                <button onClick={ajouterRevenu} className="w-9 h-9 shrink-0 bg-emerald-500 text-white rounded-2xl flex items-center justify-center hover:bg-emerald-600 transition">
+                  <Check size={16} />
+                </button>
+              </div>
+            )}
+
+            <button onClick={() => setShowAjoutRev(v => !v)}
+              className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-2xl py-3 text-slate-400 hover:border-emerald-300 hover:text-emerald-500 transition text-sm font-medium">
+              <Plus size={15} /> Ajouter une rentrée d'argent
+            </button>
+
             <div className="flex items-center justify-between bg-emerald-50 rounded-2xl px-4 py-3 mt-1">
               <span className="text-emerald-700 font-bold text-sm">Total revenus</span>
               <span className="text-emerald-600 font-black text-lg">{fmt(totalRevenus)}</span>
