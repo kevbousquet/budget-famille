@@ -8,7 +8,7 @@ import { Plus, Trash2, Copy, Check, Users, Loader2, RefreshCw, LogOut } from 'lu
 interface Charge { id: string; label: string; montant: number }
 
 interface BudgetData {
-  revenus: { monSalaire: number; salaireFemme: number }
+  revenus: { label1: string; montant1: number; label2: string; montant2: number }
   charges: Charge[]
   objectifEpargne: number
   depenses: Record<string, number>
@@ -39,7 +39,7 @@ const DEFAULT_CHARGES: Charge[] = [
 ]
 
 const DEFAULT_DATA: BudgetData = {
-  revenus: { monSalaire: 1800, salaireFemme: 1500 },
+  revenus: { label1: 'Mon prénom', montant1: 1800, label2: 'Prénom conjoint·e', montant2: 1500 },
   charges: DEFAULT_CHARGES,
   objectifEpargne: 500,
   depenses: {},
@@ -252,7 +252,7 @@ function BudgetScreen({ session }: { session: Session }) {
   const { revenus, charges, objectifEpargne, depenses } = data
 
   // ── Calculs ─────────────────────────────────────────────────────────────────
-  const totalRevenus   = revenus.monSalaire + revenus.salaireFemme
+  const totalRevenus   = revenus.montant1 + revenus.montant2
   const totalCharges   = charges.reduce((s, c) => s + c.montant, 0)
   const budgetDispo    = totalRevenus - totalCharges
   const budgetFlex     = budgetDispo - objectifEpargne
@@ -373,8 +373,20 @@ function BudgetScreen({ session }: { session: Session }) {
 
         {/* Revenus */}
         <Card title="Revenus" emoji="€" emojiColor="bg-emerald-100 text-emerald-600">
-          <Row label="Mon salaire net"><Num value={revenus.monSalaire} className="w-28" onChange={v => patch({ revenus: { ...revenus, monSalaire: v } })} /><Eur /></Row>
-          <Row label="Salaire femme (ce mois)"><Num value={revenus.salaireFemme} className="w-28" onChange={v => patch({ revenus: { ...revenus, salaireFemme: v } })} /><Eur /></Row>
+          <div className="flex items-center gap-2">
+            <input type="text" value={revenus.label1} placeholder="Prénom…"
+              onChange={e => patch({ revenus: { ...revenus, label1: e.target.value } })}
+              className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            <Num value={revenus.montant1} className="w-28" onChange={v => patch({ revenus: { ...revenus, montant1: v } })} />
+            <Eur />
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="text" value={revenus.label2} placeholder="Prénom…"
+              onChange={e => patch({ revenus: { ...revenus, label2: e.target.value } })}
+              className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300" />
+            <Num value={revenus.montant2} className="w-28" onChange={v => patch({ revenus: { ...revenus, montant2: v } })} />
+            <Eur />
+          </div>
           <TotalRow label="Total revenus"><span className="text-xl font-bold text-emerald-600">{fmt(totalRevenus)}</span></TotalRow>
         </Card>
 
