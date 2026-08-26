@@ -85,21 +85,44 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 // ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
 
 function AuthScreen() {
-  const [tab,   setTab]   = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('')
-  const [pass,  setPass]  = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [tab,       setTab]       = useState<'login' | 'register'>('login')
+  const [email,     setEmail]     = useState('')
+  const [pass,      setPass]      = useState('')
+  const [error,     setError]     = useState('')
+  const [loading,   setLoading]   = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(''); setLoading(true)
-    const { error } = tab === 'login'
-      ? await supabase.auth.signInWithPassword({ email, password: pass })
-      : await supabase.auth.signUp({ email, password: pass })
-    setLoading(false)
-    if (error) setError(error.message)
+    if (tab === 'login') {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pass })
+      setLoading(false)
+      if (error) setError('Email ou mot de passe incorrect.')
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password: pass })
+      setLoading(false)
+      if (error) setError(error.message)
+      else setEmailSent(true)
+    }
   }
+
+  if (emailSent) return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center">
+        <div className="text-5xl mb-4">📧</div>
+        <h2 className="text-xl font-bold text-slate-800 mb-2">Vérifie ton email</h2>
+        <p className="text-slate-500 text-sm mb-6">
+          Un lien de confirmation a été envoyé à <strong>{email}</strong>.<br />
+          Clique dessus pour activer ton compte, puis reviens te connecter.
+        </p>
+        <button onClick={() => { setEmailSent(false); setTab('login') }}
+          className="w-full bg-gradient-to-r from-blue-500 to-violet-600 text-white font-bold py-3 rounded-xl hover:opacity-90 transition">
+          Aller à la connexion
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center p-4">
