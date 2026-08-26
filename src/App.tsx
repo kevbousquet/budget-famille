@@ -248,6 +248,11 @@ function BudgetScreen({ session }: { session: Session }) {
   const enTrack       = ecart >= 0
   const flexRatio     = budgetFlex > 0 ? Math.min(1, totalDep / budgetFlex) : 0
 
+  // Suggestion d'épargne réaliste : 20% du disponible après charges, arrondi à 10€
+  const suggestionEpargne   = budgetDispo > 0 ? Math.round((budgetDispo * 0.20) / 10) * 10 : 0
+  const suggestionEcartPct  = suggestionEpargne > 0 ? Math.abs(objectifEpargne - suggestionEpargne) / suggestionEpargne : 1
+  const suggestionOk        = suggestionEcartPct <= 0.1 // dans les ±10%
+
   const modLabel   = (id: string, v: string) => patch({ charges: charges.map(c => c.id === id ? { ...c, label: v } : c) })
   const modMontant = (id: string, v: number) => patch({ charges: charges.map(c => c.id === id ? { ...c, montant: v } : c) })
   const supprimer  = (id: string) => patch({ charges: charges.filter(c => c.id !== id) })
@@ -459,7 +464,7 @@ function BudgetScreen({ session }: { session: Session }) {
         </Section>
 
         {/* Épargne */}
-        <div className="bg-white rounded-3xl shadow-sm p-5">
+        <div className="bg-white rounded-3xl shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="w-9 h-9 bg-amber-50 rounded-2xl flex items-center justify-center text-base">🏦</span>
@@ -473,6 +478,46 @@ function BudgetScreen({ session }: { session: Session }) {
               <span className="text-slate-400 text-sm">€</span>
             </div>
           </div>
+
+          {/* Suggestion réaliste */}
+          {budgetDispo <= 0 ? (
+            <div className="bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3">
+              <p className="text-rose-600 text-xs font-bold">⚠️ Impossible d'épargner</p>
+              <p className="text-rose-500 text-xs mt-0.5">Vos charges ({fmt(totalCharges)}) dépassent vos revenus ({fmt(totalRevenus)}). Réduisez vos charges fixes d'abord.</p>
+            </div>
+          ) : suggestionOk ? (
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <span className="text-xl">✅</span>
+              <div>
+                <p className="text-emerald-700 text-xs font-bold">Objectif réaliste</p>
+                <p className="text-emerald-600 text-xs mt-0.5">Vos {fmt(objectifEpargne)} représentent ~20% de votre disponible — c'est la règle recommandée.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2">
+                  <span className="text-lg mt-0.5">💡</span>
+                  <div>
+                    <p className="text-amber-700 text-xs font-bold">Suggestion basée sur vos revenus</p>
+                    <p className="text-amber-600 text-xs mt-0.5 leading-relaxed">
+                      Avec {fmt(budgetDispo)} disponible après charges, épargner <strong>{fmt(suggestionEpargne)}/mois</strong> (20%) serait réaliste.
+                    </p>
+                    {objectifEpargne > suggestionEpargne && (
+                      <p className="text-amber-500 text-xs mt-1">Votre objectif actuel est peut-être trop ambitieux.</p>
+                    )}
+                    {objectifEpargne < suggestionEpargne && (
+                      <p className="text-amber-500 text-xs mt-1">Vous pouvez viser plus haut sans vous priver.</p>
+                    )}
+                  </div>
+                </div>
+                <button onClick={() => patch({ objectifEpargne: suggestionEpargne })}
+                  className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition">
+                  Appliquer
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Budget flexible highlight */}
