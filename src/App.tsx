@@ -597,46 +597,76 @@ function BudgetScreen({ session }: { session: Session }) {
               { label: revenus.label1, montant: revenus.montant1, onLabel: (v: string) => patch({ revenus: { ...revenus, label1: v } }), onMontant: (v: number) => patch({ revenus: { ...revenus, montant1: v } }) },
               { label: revenus.label2, montant: revenus.montant2, onLabel: (v: string) => patch({ revenus: { ...revenus, label2: v } }), onMontant: (v: number) => patch({ revenus: { ...revenus, montant2: v } }) },
             ].map((r, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 space-y-2">
                 <input type="text" value={r.label} placeholder="Prénom…" onChange={e => r.onLabel(e.target.value)}
-                  className="flex-1 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 transition font-medium" />
-                <Num value={r.montant} className="w-28" onChange={r.onMontant} />
-                <span className="text-slate-400 text-sm shrink-0">€</span>
+                  className="w-full bg-transparent text-sm font-bold text-slate-700 placeholder-slate-400 outline-none" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Revenu mensuel</span>
+                  <div className="flex items-center gap-1.5">
+                    <input type="number" inputMode="decimal"
+                      value={r.montant === 0 ? '' : r.montant} placeholder="0"
+                      onChange={e => r.onMontant(parseFloat(e.target.value) || 0)}
+                      className="w-28 text-right font-black text-slate-800 text-base bg-transparent outline-none" />
+                    <span className="text-slate-500 text-sm font-semibold shrink-0">€</span>
+                  </div>
+                </div>
               </div>
             ))}
+
             {autresRevenus.length > 0 && (
               <div className="border-t border-dashed border-slate-200 pt-2 space-y-2">
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">Autres rentrées</p>
                 {autresRevenus.map(r => (
-                  <div key={r.id} className="flex items-center gap-2">
-                    <input type="text" value={r.label} onChange={e => patch({ autresRevenus: autresRevenus.map(x => x.id === r.id ? { ...x, label: e.target.value } : x) })}
-                      className="flex-1 min-w-0 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
-                    <Num value={r.montant} className="w-24" onChange={v => patch({ autresRevenus: autresRevenus.map(x => x.id === r.id ? { ...x, montant: v } : x) })} />
-                    <span className="text-slate-400 text-sm shrink-0">€</span>
-                    <button onClick={() => patch({ autresRevenus: autresRevenus.filter(x => x.id !== r.id) })}
-                      className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition"><Trash2 size={15} /></button>
+                  <div key={r.id} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <input type="text" value={r.label}
+                        onChange={e => patch({ autresRevenus: autresRevenus.map(x => x.id === r.id ? { ...x, label: e.target.value } : x) })}
+                        className="flex-1 min-w-0 bg-transparent text-sm font-bold text-slate-700 placeholder-slate-400 outline-none" />
+                      <button onClick={() => patch({ autresRevenus: autresRevenus.filter(x => x.id !== r.id) })}
+                        className="shrink-0 text-slate-300 hover:text-rose-500 transition"><Trash2 size={14} /></button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-slate-400">Montant mensuel</span>
+                      <div className="flex items-center gap-1.5">
+                        <input type="number" inputMode="decimal"
+                          value={r.montant === 0 ? '' : r.montant} placeholder="0"
+                          onChange={e => patch({ autresRevenus: autresRevenus.map(x => x.id === r.id ? { ...x, montant: parseFloat(e.target.value) || 0 } : x) })}
+                          className="w-28 text-right font-black text-slate-800 text-base bg-transparent outline-none" />
+                        <span className="text-slate-500 text-sm font-semibold shrink-0">€</span>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
+
             {showAjoutRev && (
-              <div className="flex items-center gap-2 pt-2 border-t border-dashed border-slate-200">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-3 py-2.5 space-y-2">
                 <input type="text" placeholder="Ex : Loyer perçu, APL…" value={ajoutRevLabel} autoFocus
                   onChange={e => setAjoutRevLabel(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouterRevenu()}
-                  className="flex-1 min-w-0 border border-emerald-300 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-                <input type="number" inputMode="decimal" placeholder="0" value={ajoutRevMontant}
-                  onChange={e => setAjoutRevMontant(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouterRevenu()}
-                  className="w-24 border border-emerald-300 rounded-2xl px-3 py-2.5 text-right text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-                <button onClick={ajouterRevenu} className="w-9 h-9 shrink-0 bg-emerald-500 text-white rounded-2xl flex items-center justify-center hover:bg-emerald-600 transition"><Check size={16} /></button>
+                  className="w-full bg-transparent text-sm font-bold text-slate-700 placeholder-slate-400 outline-none" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Montant mensuel</span>
+                  <div className="flex items-center gap-2">
+                    <input type="number" inputMode="decimal" placeholder="0" value={ajoutRevMontant}
+                      onChange={e => setAjoutRevMontant(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouterRevenu()}
+                      className="w-28 text-right font-black text-slate-800 text-base bg-transparent outline-none" />
+                    <span className="text-slate-500 text-sm font-semibold shrink-0">€</span>
+                    <button onClick={ajouterRevenu} className="w-7 h-7 shrink-0 bg-emerald-500 text-white rounded-xl flex items-center justify-center hover:bg-emerald-600 transition">
+                      <Check size={14} />
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
+
             <button onClick={() => setShowAjoutRev(v => !v)}
               className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-200 rounded-2xl py-3 text-slate-400 hover:border-emerald-300 hover:text-emerald-500 transition text-sm font-medium">
               <Plus size={15} /> Ajouter une rentrée d'argent
             </button>
             <div className="flex items-center justify-between bg-emerald-50 rounded-2xl px-4 py-3 mt-1">
-              <span className="text-emerald-700 font-bold text-sm">Total revenus</span>
-              <span className="text-emerald-600 font-black text-lg">{fmt(totalRevenus)}</span>
+              <span className="text-emerald-700 font-bold text-sm shrink-0">Total revenus</span>
+              <span className="text-emerald-600 font-black text-lg">{fmtShort(totalRevenus)}</span>
             </div>
           </div>
         </Section>
@@ -645,23 +675,39 @@ function BudgetScreen({ session }: { session: Session }) {
         <Section title="Charges fixes" icon="🏠" color="bg-rose-50 text-rose-500" defaultOpen={false}>
           <div className="pt-3 space-y-2">
             {charges.map(c => (
-              <div key={c.id} className="flex items-center gap-2">
-                <input type="text" value={c.label} onChange={e => modLabel(c.id, e.target.value)}
-                  className="flex-1 min-w-0 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 transition" />
-                <Num value={c.montant} className="w-24" onChange={v => modMontant(c.id, v)} />
-                <span className="text-slate-400 text-sm shrink-0">€</span>
-                <button onClick={() => supprimer(c.id)} className="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition"><Trash2 size={15} /></button>
+              <div key={c.id} className="bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <input type="text" value={c.label} onChange={e => modLabel(c.id, e.target.value)}
+                    className="flex-1 min-w-0 bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none" />
+                  <button onClick={() => supprimer(c.id)} className="shrink-0 text-slate-300 hover:text-rose-500 transition"><Trash2 size={14} /></button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Montant mensuel</span>
+                  <div className="flex items-center gap-1.5">
+                    <input type="number" inputMode="decimal"
+                      value={c.montant === 0 ? '' : c.montant} placeholder="0"
+                      onChange={e => modMontant(c.id, parseFloat(e.target.value) || 0)}
+                      className="w-28 text-right font-bold text-slate-800 text-sm bg-transparent outline-none" />
+                    <span className="text-slate-500 text-sm font-semibold shrink-0">€</span>
+                  </div>
+                </div>
               </div>
             ))}
             {showAjout && (
-              <div className="flex items-center gap-2 pt-2 border-t border-dashed border-slate-200">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-3 py-2.5 space-y-2">
                 <input type="text" placeholder="Nom de la charge…" value={ajoutLabel} autoFocus
                   onChange={e => setAjoutLabel(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouter()}
-                  className="flex-1 min-w-0 border border-indigo-300 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                <input type="number" inputMode="decimal" placeholder="0" value={ajoutMontant}
-                  onChange={e => setAjoutMontant(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouter()}
-                  className="w-24 border border-indigo-300 rounded-2xl px-3 py-2.5 text-right text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                <button onClick={ajouter} className="w-9 h-9 shrink-0 bg-indigo-500 text-white rounded-2xl flex items-center justify-center hover:bg-indigo-600 transition"><Check size={16} /></button>
+                  className="w-full bg-transparent text-sm font-bold text-slate-700 placeholder-slate-400 outline-none" />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">Montant mensuel</span>
+                  <div className="flex items-center gap-2">
+                    <input type="number" inputMode="decimal" placeholder="0" value={ajoutMontant}
+                      onChange={e => setAjoutMontant(e.target.value)} onKeyDown={e => e.key === 'Enter' && ajouter()}
+                      className="w-28 text-right font-bold text-slate-800 text-sm bg-transparent outline-none" />
+                    <span className="text-slate-500 text-sm font-semibold shrink-0">€</span>
+                    <button onClick={ajouter} className="w-7 h-7 shrink-0 bg-indigo-500 text-white rounded-xl flex items-center justify-center hover:bg-indigo-600 transition"><Check size={14} /></button>
+                  </div>
+                </div>
               </div>
             )}
             <button onClick={() => setShowAjout(v => !v)}
@@ -669,8 +715,8 @@ function BudgetScreen({ session }: { session: Session }) {
               <Plus size={15} /> Ajouter une charge
             </button>
             <div className="flex items-center justify-between bg-rose-50 rounded-2xl px-4 py-3">
-              <span className="text-rose-700 font-bold text-sm">Total charges</span>
-              <span className="text-rose-500 font-black text-lg">{fmt(totalCharges)}</span>
+              <span className="text-rose-700 font-bold text-sm shrink-0">Total charges</span>
+              <span className="text-rose-500 font-black text-lg">{fmtShort(totalCharges)}</span>
             </div>
           </div>
         </Section>
@@ -833,19 +879,22 @@ function BudgetScreen({ session }: { session: Session }) {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <button onClick={() => { setActiveCat(cat.id); setNewTxLabel(''); setNewTxMontant('') }}
-                        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-indigo-500 transition">
+                        className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-indigo-500 transition shrink-0">
                         <Plus size={13} /> Ajouter
                       </button>
-                      <div>
-                        <span className="text-xs text-slate-400">Dépensé </span>
-                        <span className="font-black text-sm" style={{ color: barColor }}>{fmt(dep)}</span>
-                        <span className="text-xs text-slate-300 mx-1">·</span>
-                        <span className="text-xs text-slate-400">Reste </span>
-                        <span className={`font-bold text-sm ${isOver ? 'text-rose-500' : 'text-slate-700'}`}>
-                          {isOver ? `−${fmt(Math.abs(reste))}` : fmt(reste)}
-                        </span>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Dépensé</p>
+                          <p className="font-black text-sm leading-tight" style={{ color: barColor }}>{fmt(dep)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-slate-400">Reste</p>
+                          <p className={`font-bold text-sm leading-tight ${isOver ? 'text-rose-500' : 'text-slate-700'}`}>
+                            {isOver ? `−${fmt(Math.abs(reste))}` : fmt(reste)}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
