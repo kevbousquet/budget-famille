@@ -3,6 +3,35 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
 import { Plus, Trash2, Copy, Check, Users, Loader2, RefreshCw, LogOut, ChevronDown, ChevronUp, Archive, X } from 'lucide-react'
 
+// ─── Logo ─────────────────────────────────────────────────────────────────────
+
+function Logo({ size = 64 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 200 200" style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="logo-g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#059669"/>
+          <stop offset="100%" stopColor="#0891b2"/>
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="192" height="192" rx="48" fill="url(#logo-g)"/>
+      <rect x="50" y="106" width="100" height="76" rx="8" fill="white" opacity=".95"/>
+      <polygon points="38,112 100,46 162,112" fill="white"/>
+      <rect x="126" y="56" width="20" height="36" rx="4" fill="white" opacity=".9"/>
+      <rect x="80" y="132" width="40" height="50" rx="10" fill="#0891b2" opacity=".6"/>
+      <circle cx="114" cy="159" r="3.5" fill="white" opacity=".8"/>
+      <rect x="56" y="118" width="26" height="22" rx="5" fill="#0891b2" opacity=".45"/>
+      <line x1="69" y1="118" x2="69" y2="140" stroke="white" strokeWidth="2" opacity=".6"/>
+      <line x1="56" y1="129" x2="82" y2="129" stroke="white" strokeWidth="2" opacity=".6"/>
+      <rect x="118" y="118" width="26" height="22" rx="5" fill="#0891b2" opacity=".45"/>
+      <line x1="131" y1="118" x2="131" y2="140" stroke="white" strokeWidth="2" opacity=".6"/>
+      <line x1="118" y1="129" x2="144" y2="129" stroke="white" strokeWidth="2" opacity=".6"/>
+      <circle cx="100" cy="82" r="22" fill="#059669"/>
+      <text x="100" y="90" textAnchor="middle" fill="white" fontSize="26" fontWeight="900" fontFamily="Arial,sans-serif">€</text>
+    </svg>
+  )
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Charge       { id: string; label: string; montant: number }
@@ -229,7 +258,11 @@ function AuthScreen() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 flex flex-col items-center justify-center p-5">
       <div className="mb-8 text-center text-white">
-        <div className="text-6xl mb-3">💰</div>
+        <div className="flex justify-center mb-4">
+          <div className="rounded-3xl shadow-2xl shadow-black/30">
+            <Logo size={88} />
+          </div>
+        </div>
         <h1 className="text-3xl font-black tracking-tight">Budget Famille</h1>
         <p className="text-white/70 mt-1">Gérez votre budget ensemble</p>
       </div>
@@ -480,9 +513,14 @@ function BudgetScreen({ session }: { session: Session }) {
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 px-5 pt-12 pb-20">
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <p className="text-white/60 text-xs font-medium uppercase tracking-widest">Budget Famille</p>
-            <h1 className="text-white text-xl font-black mt-0.5 capitalize">{monthLabel(currentMonth())}</h1>
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl shadow-md shadow-black/20 shrink-0">
+              <Logo size={40} />
+            </div>
+            <div>
+              <p className="text-white/60 text-xs font-medium uppercase tracking-widest">Budget Famille</p>
+              <h1 className="text-white text-xl font-black mt-0.5 capitalize">{monthLabel(currentMonth())}</h1>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {syncing ? <RefreshCw size={14} className="animate-spin text-white/60" /> : lastSync && <span className="text-white/50 text-xs">✓ synchro</span>}
