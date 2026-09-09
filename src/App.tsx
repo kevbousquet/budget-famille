@@ -307,7 +307,6 @@ function BudgetScreen({ session }: { session: Session }) {
   const [loading,  setLoading]  = useState(true)
   const [syncing,  setSyncing]  = useState(false)
   const [lastSync, setLastSync] = useState<Date | null>(null)
-  const [showNewMonthModal, setShowNewMonthModal] = useState(false)
   const skipSave  = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -328,13 +327,7 @@ function BudgetScreen({ session }: { session: Session }) {
       }
       const { data: foyer } = await supabase.from('budget_foyer').select('data').eq('foyer_id', id).single()
       if (foyer?.data && Object.keys(foyer.data).length > 0) {
-        const migrated = migrateData(foyer.data as Record<string, unknown>)
-        setData(migrated)
-        // Détecter nouveau mois
-        if (migrated.lastResetMonth !== currentMonth()) {
-          const hasData = Object.values(migrated.transactions || {}).some(t => t.length > 0)
-          if (hasData) setShowNewMonthModal(true)
-        }
+        setData(migrateData(foyer.data as Record<string, unknown>))
       }
       setFoyerId(id); setLoading(false)
     })()
@@ -429,8 +422,10 @@ function BudgetScreen({ session }: { session: Session }) {
 
   // ── Archivage mensuel ──────────────────────────────────────────────────────
   const archiveMonth = () => {
+    const mois = data.lastResetMonth
+    if (!confirm(`Archiver ${monthLabel(mois)} et remettre les dépenses à zéro ?\n\nLes données seront conservées dans "Mois précédents".`)) return
     const archived: ArchivedMonth = {
-      mois:          data.lastResetMonth,
+      mois,
       transactions:  data.transactions || {},
       totalRevenus,
       totalCharges,
@@ -444,7 +439,15 @@ function BudgetScreen({ session }: { session: Session }) {
       history:        [archived, ...(data.history || [])].slice(0, 12),
       lastResetMonth: currentMonth(),
     })
-    setShowNewMonthModal(false)
+  }
+
+  const restoreMonth = (m: ArchivedMonth) => {
+    if (!confirm(`Restaurer les dépenses de ${monthLabel(m.mois)} dans le mois actuel ?\n\nLes dépenses actuelles seront remplacées.`)) return
+    patch({
+      transactions: m.transactions,
+      depenses:     {},
+      history:      (data.history || []).filter(h => h.mois !== m.mois),
+    })
   }
 
   // ── Code famille ───────────────────────────────────────────────────────────
@@ -485,30 +488,6 @@ function BudgetScreen({ session }: { session: Session }) {
 
   return (
     <div className="min-h-screen bg-slate-100">
-
-      {/* ── Modal nouveau mois ─────────────────────────────────────────────── */}
-      {showNewMonthModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
-            <div className="text-4xl text-center mb-3">🗓️</div>
-            <h2 className="text-xl font-black text-slate-800 text-center mb-2">Nouveau mois !</h2>
-            <p className="text-slate-500 text-sm text-center leading-relaxed mb-6">
-              C'est <strong className="text-slate-700">{monthLabel(currentMonth())}</strong>.<br />
-              Voulez-vous archiver <strong className="text-slate-700">{monthLabel(data.lastResetMonth)}</strong> et repartir à zéro ?
-            </p>
-            <div className="space-y-2">
-              <button onClick={archiveMonth}
-                className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold py-3.5 rounded-2xl hover:opacity-90 transition flex items-center justify-center gap-2">
-                <Archive size={16} /> Archiver et repartir à zéro
-              </button>
-              <button onClick={() => setShowNewMonthModal(false)}
-                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium py-3 rounded-2xl transition">
-                Plus tard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 px-5 pt-12 pb-20">
@@ -922,15 +901,15 @@ function BudgetScreen({ session }: { session: Session }) {
               </div>
             ))}
           </div>
-          <button onClick={() => setShowNewMonthModal(true)}
+          <button onClick={archiveMonth}
             className="mt-4 w-full flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white font-bold py-3 rounded-2xl transition text-sm">
-            <Archive size={15} /> Archiver ce mois
+            <Archive size={15} /> Archiver ce mois et repartir à zéro
           </button>
         </div>
 
         {/* Historique */}
         {data.history && data.history.length > 0 && (
-          <Section title="Mois précédents" icon="📅" color="bg-slate-100 text-slate-500" defaultOpen={false}>
+          <Section title="Mois précédents" icon="📅" color="bg-slate-100 text-slate-500" defaultOpen={true}>
             <div className="pt-3 space-y-3">
               {data.history.map(m => {
                 const ok = m.epargneReelle >= m.objectifEpargne
@@ -955,7 +934,7 @@ function BudgetScreen({ session }: { session: Session }) {
                         </div>
                       ))}
                     </div>
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 mb-3">
                       {CATEGORIES.map(cat => {
                         const catDep = (m.transactions[cat.id] || []).reduce((s, t) => s + t.montant, 0)
                         if (catDep === 0) return null
@@ -972,6 +951,10 @@ function BudgetScreen({ session }: { session: Session }) {
                         )
                       })}
                     </div>
+                    <button onClick={() => restoreMonth(m)}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 py-2.5 rounded-xl transition">
+                      ↩ Restaurer ce mois dans les dépenses actuelles
+                    </button>
                   </div>
                 )
               })}
