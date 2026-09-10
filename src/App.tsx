@@ -215,6 +215,47 @@ function DonutChart({ segments, center }: { segments: ChartSeg[]; center: React.
   )
 }
 
+// ─── Candle Chart ─────────────────────────────────────────────────────────────
+
+function CandleChart({ history }: { history: ArchivedMonth[] }) {
+  if (history.length === 0) return null
+  const sorted = [...history].reverse()
+  const maxRev = Math.max(...sorted.map(m => m.totalRevenus), 1)
+  const H = 130, CW = 38, GAP = 12, PAD = 4
+  return (
+    <div className="overflow-x-auto pb-1">
+      <svg width={sorted.length * (CW + GAP) + PAD * 2} height={H + 52} style={{ display: 'block' }}>
+        {sorted.map((m, i) => {
+          const x = PAD + i * (CW + GAP)
+          const totalSpent = m.totalCharges + m.totalDepenses
+          const revH     = (m.totalRevenus / maxRev) * H
+          const expH     = Math.min((totalSpent / maxRev) * H, revH)
+          const savH     = revH - expH
+          const ok       = m.epargneReelle >= m.objectifEpargne
+          const pos      = m.epargneReelle > 0
+          const savColor = ok ? '#34D399' : pos ? '#FBBF24' : '#F87171'
+          const yRevTop  = H - revH
+          const yExpTop  = H - expH
+          const monthShort = new Date(m.mois + '-01').toLocaleDateString('fr-FR', { month: 'short' })
+          return (
+            <g key={m.mois} transform={`translate(${x}, 0)`}>
+              <rect x={2} y={yRevTop} width={CW - 4} height={revH} rx={6} fill="#F1F5F9" />
+              {savH > 1 && <rect x={2} y={yRevTop} width={CW - 4} height={savH} rx={6} fill={savColor} opacity={0.85} />}
+              <rect x={2} y={yExpTop} width={CW - 4} height={expH} rx={6} fill="#94A3B8" opacity={0.5} />
+              <text x={CW / 2} y={Math.max(yRevTop - 4, 9)} textAnchor="middle" fontSize={8.5} fontWeight="bold" fill={savColor} fontFamily="system-ui,sans-serif">
+                {m.epargneReelle >= 0 ? '+' : ''}{fmtShort(m.epargneReelle)}
+              </text>
+              <text x={CW / 2} y={H + 16} textAnchor="middle" fontSize={10} fill="#64748B" fontFamily="system-ui,sans-serif">
+                {monthShort}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 function AuthScreen() {
@@ -467,6 +508,26 @@ function BudgetScreen({ session }: { session: Session }) {
     })
   }
 
+  // ── Vue & archives ─────────────────────────────────────────────────────────
+  const [view, setView] = useState<'budget' | 'archives'>('budget')
+  const [editingArchive,  setEditingArchive]  = useState<string | null>(null)
+  const [archiveEdits,    setArchiveEdits]    = useState<{ totalRevenus: number; totalCharges: number; totalDepenses: number }>({ totalRevenus: 0, totalCharges: 0, totalDepenses: 0 })
+
+  const deleteArchivedMonth = (mois: string) => {
+    if (!confirm(`Supprimer définitivement l'archive de ${monthLabel(mois)} ?`)) return
+    patch({ history: (data.history || []).filter(h => h.mois !== mois) })
+  }
+
+  const saveArchiveEdit = (mois: string) => {
+    const epr = archiveEdits.totalRevenus - archiveEdits.totalCharges - archiveEdits.totalDepenses
+    patch({
+      history: (data.history || []).map(h =>
+        h.mois === mois ? { ...h, ...archiveEdits, epargneReelle: epr } : h
+      ),
+    })
+    setEditingArchive(null)
+  }
+
   // ── Code famille ───────────────────────────────────────────────────────────
   const [copied,      setCopied]      = useState(false)
   const [showJoin,    setShowJoin]    = useState(false)
@@ -552,6 +613,26 @@ function BudgetScreen({ session }: { session: Session }) {
 
       {/* ── Content ───────────────────────────────────────────────────────── */}
       <div className="-mt-10 px-4 pb-10 space-y-4">
+
+        {/* Tabs */}
+        <div className="bg-white rounded-3xl shadow-sm p-1.5 flex gap-1.5">
+          {([
+            { id: 'budget',   label: '📋 Budget' },
+            { id: 'archives', label: '📅 Archives' },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setView(t.id)}
+              className={`flex-1 py-2.5 rounded-2xl text-sm font-bold transition-all relative ${view === t.id ? 'bg-indigo-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+              {t.label}
+              {t.id === 'archives' && data.history && data.history.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-400 text-white text-xs font-black rounded-full flex items-center justify-center leading-none">
+                  {data.history.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {view === 'budget' && (<>
 
         {/* Code famille */}
         <div className="bg-white rounded-3xl shadow-sm p-5">
@@ -952,65 +1033,150 @@ function BudgetScreen({ session }: { session: Session }) {
           </button>
         </div>
 
-        {/* Historique */}
-        {data.history && data.history.length > 0 && (
-          <Section title="Mois précédents" icon="📅" color="bg-slate-100 text-slate-500" defaultOpen={true}>
-            <div className="pt-3 space-y-3">
-              {data.history.map(m => {
-                const ok = m.epargneReelle >= m.objectifEpargne
-                const mBudgetFlex = m.totalRevenus - m.totalCharges - m.objectifEpargne
-                return (
-                  <div key={m.mois} className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-bold text-slate-700 capitalize text-sm">{monthLabel(m.mois)}</span>
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
-                        {ok ? '✓ En track' : '✗ Dépassé'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center mb-3">
-                      {[
-                        { label: 'Revenus',  value: m.totalRevenus,   color: 'text-emerald-600' },
-                        { label: 'Dépensé',  value: m.totalDepenses,  color: 'text-slate-700' },
-                        { label: 'Épargné',  value: m.epargneReelle,  color: ok ? 'text-emerald-600' : 'text-rose-500' },
-                      ].map(s => (
-                        <div key={s.label}>
-                          <p className={`font-black text-sm ${s.color}`}>{fmtShort(s.value)}</p>
-                          <p className="text-slate-400 text-xs">{s.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="space-y-1.5 mb-3">
-                      {CATEGORIES.map(cat => {
-                        const catDep = (m.transactions[cat.id] || []).reduce((s, t) => s + t.montant, 0)
-                        if (catDep === 0) return null
-                        const budget = mBudgetFlex * cat.pct
-                        const ratio  = budget > 0 ? Math.min(1, catDep / budget) : 0
-                        return (
-                          <div key={cat.id} className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 w-16 shrink-0 truncate">{cat.label}</span>
-                            <div className="flex-1 bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                              <div className="h-1.5 rounded-full" style={{ width: `${ratio * 100}%`, backgroundColor: cat.color }} />
-                            </div>
-                            <span className="text-xs font-bold text-slate-600 w-14 text-right shrink-0">{fmtShort(catDep)}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    <button onClick={() => restoreMonth(m)}
-                      className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 py-2.5 rounded-xl transition">
-                      ↩ Restaurer ce mois dans les dépenses actuelles
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </Section>
-        )}
-
         <button onClick={() => { if (!confirm('Remettre toutes les dépenses à zéro ?')) return; patch({ transactions: {}, depenses: {} }) }}
           className="w-full text-center text-xs text-slate-400 hover:text-rose-400 py-3 transition font-medium">
           Remettre les dépenses à zéro (sans archiver)
         </button>
+
+        </>)}
+
+        {view === 'archives' && (
+          <div className="space-y-4">
+            {data.history && data.history.length > 0 ? (<>
+
+              {/* Graphique bougies */}
+              <div className="bg-white rounded-3xl shadow-sm p-5">
+                <p className="font-bold text-slate-700 text-sm mb-1">Évolution mensuelle</p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-4">
+                  {[
+                    { color: '#34D399', label: 'Épargne atteinte' },
+                    { color: '#FBBF24', label: 'Épargne partielle' },
+                    { color: '#F87171', label: 'Dépassé' },
+                    { color: '#94A3B8', label: 'Dépenses', opacity: 0.5 },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1.5">
+                      <span className="w-3 h-3 rounded-sm inline-block" style={{ background: l.color, opacity: l.opacity ?? 1 }} />
+                      <span className="text-xs text-slate-400">{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+                <CandleChart history={data.history} />
+              </div>
+
+              {/* Cartes par mois */}
+              {data.history.map(m => {
+                const ok = m.epargneReelle >= m.objectifEpargne
+                const mBudgetFlex = m.totalRevenus - m.totalCharges - m.objectifEpargne
+                const ecart = m.epargneReelle - m.objectifEpargne
+                const isEditing = editingArchive === m.mois
+                return (
+                  <div key={m.mois} className="bg-white rounded-3xl shadow-sm p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="font-bold text-slate-700 capitalize">{monthLabel(m.mois)}</span>
+                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                        {ok ? '✓ En track' : '✗ Dépassé'}
+                      </span>
+                    </div>
+
+                    {isEditing ? (
+                      <div className="space-y-3 mb-4">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Modifier les montants</p>
+                        {([
+                          { label: 'Total revenus',             key: 'totalRevenus'  },
+                          { label: 'Total charges fixes',       key: 'totalCharges'  },
+                          { label: 'Total dépenses variables',  key: 'totalDepenses' },
+                        ] as { label: string; key: keyof typeof archiveEdits }[]).map(f => (
+                          <div key={f.key} className="flex items-center justify-between bg-slate-50 rounded-2xl px-3 py-2.5">
+                            <span className="text-xs text-slate-500 shrink-0">{f.label}</span>
+                            <div className="flex items-center gap-1">
+                              <input type="number" inputMode="decimal" value={archiveEdits[f.key] || ''}
+                                onChange={e => setArchiveEdits(p => ({ ...p, [f.key]: parseFloat(e.target.value) || 0 }))}
+                                className="w-24 text-right text-sm font-bold text-slate-800 bg-transparent outline-none" />
+                              <span className="text-slate-400 text-xs">€</span>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-between bg-amber-50 rounded-2xl px-3 py-2.5">
+                          <span className="text-xs text-amber-600 font-bold">Épargne calculée</span>
+                          <span className="text-sm font-black text-amber-600">
+                            {fmtShort(archiveEdits.totalRevenus - archiveEdits.totalCharges - archiveEdits.totalDepenses)}
+                          </span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => saveArchiveEdit(m.mois)}
+                            className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2.5 rounded-2xl text-sm transition flex items-center justify-center gap-1.5">
+                            <Check size={14} /> Enregistrer
+                          </button>
+                          <button onClick={() => setEditingArchive(null)}
+                            className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-2.5 rounded-2xl text-sm transition">
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (<>
+                      <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                        {[
+                          { label: 'Revenus',  value: m.totalRevenus,  color: 'text-emerald-600' },
+                          { label: 'Dépensé',  value: m.totalDepenses, color: 'text-slate-700'   },
+                          { label: 'Épargné',  value: m.epargneReelle, color: ok ? 'text-emerald-600' : 'text-rose-500' },
+                        ].map(s => (
+                          <div key={s.label}>
+                            <p className={`font-black text-sm ${s.color}`}>{fmtShort(s.value)}</p>
+                            <p className="text-slate-400 text-xs">{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className={`rounded-2xl px-3 py-2 mb-3 flex items-center justify-between ${ok ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+                        <span className={`text-xs font-bold ${ok ? 'text-emerald-700' : 'text-rose-600'}`}>Écart vs objectif</span>
+                        <span className={`text-sm font-black ${ok ? 'text-emerald-600' : 'text-rose-500'}`}>{ecart >= 0 ? '+' : ''}{fmt(ecart)}</span>
+                      </div>
+                      <div className="space-y-1.5 mb-4">
+                        {CATEGORIES.map(cat => {
+                          const catDep = (m.transactions[cat.id] || []).reduce((s, t) => s + t.montant, 0)
+                          if (catDep === 0) return null
+                          const budget = mBudgetFlex * cat.pct
+                          const ratio  = budget > 0 ? Math.min(1, catDep / budget) : 0
+                          return (
+                            <div key={cat.id} className="flex items-center gap-2">
+                              <span className="text-xs">{cat.emoji}</span>
+                              <span className="text-xs text-slate-500 w-14 shrink-0 truncate">{cat.label}</span>
+                              <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                <div className="h-1.5 rounded-full" style={{ width: `${ratio * 100}%`, backgroundColor: cat.color }} />
+                              </div>
+                              <span className="text-xs font-bold text-slate-600 w-14 text-right shrink-0">{fmtShort(catDep)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => restoreMonth(m)}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 py-2.5 rounded-2xl transition">
+                          ↩ Restaurer
+                        </button>
+                        <button onClick={() => { setEditingArchive(m.mois); setArchiveEdits({ totalRevenus: m.totalRevenus, totalCharges: m.totalCharges, totalDepenses: m.totalDepenses }) }}
+                          className="flex items-center justify-center gap-1 text-xs font-bold text-amber-500 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-2.5 rounded-2xl transition">
+                          <Pencil size={12} /> Modifier
+                        </button>
+                        <button onClick={() => deleteArchivedMonth(m.mois)}
+                          className="flex items-center justify-center gap-1 text-xs font-bold text-rose-400 hover:text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-2.5 rounded-2xl transition">
+                          <Trash2 size={12} /> Effacer
+                        </button>
+                      </div>
+                    </>)}
+                  </div>
+                )
+              })}
+
+            </>) : (
+              <div className="bg-white rounded-3xl shadow-sm p-10 text-center">
+                <p className="text-4xl mb-3">📭</p>
+                <p className="font-bold text-slate-600 mb-1">Aucun mois archivé</p>
+                <p className="text-slate-400 text-xs leading-relaxed">Archivez votre premier mois depuis l'onglet Budget.</p>
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   )
