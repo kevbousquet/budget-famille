@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useId } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import { Plus, Trash2, Copy, Check, Users, Loader2, RefreshCw, LogOut, ChevronDown, ChevronUp, Archive, X } from 'lucide-react'
+import { Plus, Trash2, Copy, Check, Users, Loader2, RefreshCw, LogOut, ChevronDown, ChevronUp, Archive, X, Pencil } from 'lucide-react'
 
 // ─── Logo ─────────────────────────────────────────────────────────────────────
 
@@ -61,11 +61,12 @@ interface BudgetData {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
-  { id: 'courses',  emoji: '🛒', label: 'Courses',  pct: 0.46, color: '#34D399' },
-  { id: 'loisirs',  emoji: '🎬', label: 'Loisirs',  pct: 0.25, color: '#60A5FA' },
-  { id: 'shopping', emoji: '👕', label: 'Shopping', pct: 0.13, color: '#A78BFA' },
-  { id: 'sante',    emoji: '💊', label: 'Santé',    pct: 0.08, color: '#2DD4BF' },
-  { id: 'cadeaux',  emoji: '🎁', label: 'Imprévus', pct: 0.08, color: '#FB923C' },
+  { id: 'courses',   emoji: '🛒', label: 'Courses',   pct: 0.40, color: '#34D399' },
+  { id: 'loisirs',   emoji: '🎬', label: 'Loisirs',   pct: 0.22, color: '#60A5FA' },
+  { id: 'carburant', emoji: '⛽', label: 'Carburant', pct: 0.10, color: '#F97316' },
+  { id: 'shopping',  emoji: '👕', label: 'Shopping',  pct: 0.12, color: '#A78BFA' },
+  { id: 'sante',     emoji: '💊', label: 'Santé',     pct: 0.08, color: '#2DD4BF' },
+  { id: 'cadeaux',   emoji: '🎁', label: 'Imprévus',  pct: 0.08, color: '#FB923C' },
 ] as const
 
 const DEFAULT_CHARGES: Charge[] = [
@@ -403,6 +404,9 @@ function BudgetScreen({ session }: { session: Session }) {
   const [activeCat,    setActiveCat]    = useState<string | null>(null)
   const [newTxLabel,   setNewTxLabel]   = useState('')
   const [newTxMontant, setNewTxMontant] = useState('')
+  const [editingTx,    setEditingTx]    = useState<{ catId: string; txId: string } | null>(null)
+  const [editTxLabel,  setEditTxLabel]  = useState('')
+  const [editTxMontant, setEditTxMontant] = useState('')
 
   const addTransaction = (catId: string) => {
     if (!newTxMontant) return
@@ -418,6 +422,19 @@ function BudgetScreen({ session }: { session: Session }) {
 
   const deleteTransaction = (catId: string, txId: string) => {
     patch({ transactions: { ...transactions, [catId]: (transactions[catId] || []).filter(t => t.id !== txId) } })
+  }
+
+  const updateTransaction = (catId: string, txId: string) => {
+    if (!editTxMontant) return
+    patch({
+      transactions: {
+        ...transactions,
+        [catId]: (transactions[catId] || []).map(t =>
+          t.id === txId ? { ...t, label: editTxLabel.trim() || 'Dépense', montant: parseFloat(editTxMontant) || 0 } : t
+        ),
+      },
+    })
+    setEditingTx(null)
   }
 
   // ── Archivage mensuel ──────────────────────────────────────────────────────
@@ -821,21 +838,49 @@ function BudgetScreen({ session }: { session: Session }) {
                   {/* Journal de transactions */}
                   {catTxs.length > 0 && (
                     <div className="space-y-1.5 mb-3">
-                      {[...catTxs].reverse().map(tx => (
-                        <div key={tx.id} className="flex items-center justify-between bg-white/70 rounded-xl px-3 py-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-slate-400 text-xs shrink-0">{txDate(tx.date)}</span>
-                            <span className="text-slate-600 text-xs truncate">{tx.label}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-bold text-sm text-slate-800">{fmt(tx.montant)}</span>
-                            <button onClick={() => deleteTransaction(cat.id, tx.id)}
-                              className="w-5 h-5 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 transition">
-                              <X size={12} />
+                      {[...catTxs].reverse().map(tx => {
+                        const isEditing = editingTx?.txId === tx.id && editingTx?.catId === cat.id
+                        if (isEditing) return (
+                          <div key={tx.id} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2">
+                            <input type="text" value={editTxLabel} autoFocus
+                              onChange={e => setEditTxLabel(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && updateTransaction(cat.id, tx.id)}
+                              placeholder="Description…"
+                              className="flex-1 min-w-0 bg-transparent text-xs outline-none placeholder-slate-400 text-slate-700" />
+                            <input type="number" inputMode="decimal" value={editTxMontant}
+                              onChange={e => setEditTxMontant(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && updateTransaction(cat.id, tx.id)}
+                              className="w-20 bg-transparent text-right text-xs font-bold outline-none text-slate-800" />
+                            <button onClick={() => updateTransaction(cat.id, tx.id)}
+                              className="w-5 h-5 flex items-center justify-center rounded-lg bg-indigo-500 text-white hover:bg-indigo-600 transition">
+                              <Check size={11} />
+                            </button>
+                            <button onClick={() => setEditingTx(null)}
+                              className="w-5 h-5 flex items-center justify-center rounded-lg text-slate-300 hover:bg-slate-100 transition">
+                              <X size={11} />
                             </button>
                           </div>
-                        </div>
-                      ))}
+                        )
+                        return (
+                          <div key={tx.id} className="flex items-center justify-between bg-white/70 rounded-xl px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-slate-400 text-xs shrink-0">{txDate(tx.date)}</span>
+                              <span className="text-slate-600 text-xs truncate">{tx.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="font-bold text-sm text-slate-800">{fmt(tx.montant)}</span>
+                              <button onClick={() => { setEditingTx({ catId: cat.id, txId: tx.id }); setEditTxLabel(tx.label); setEditTxMontant(String(tx.montant)) }}
+                                className="w-5 h-5 flex items-center justify-center rounded-lg text-slate-300 hover:text-indigo-400 transition">
+                                <Pencil size={11} />
+                              </button>
+                              <button onClick={() => deleteTransaction(cat.id, tx.id)}
+                                className="w-5 h-5 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 transition">
+                                <X size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
 
